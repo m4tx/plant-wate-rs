@@ -104,9 +104,7 @@ impl MockMicrocontroller {
 
     fn check_gpio_none(&self, id: GpioId) {
         if self.gpio.contains_key(&id) {
-            if let MockGpio::Disabled = self.gpio[&id] {
-                panic!("{} already enabled!", id);
-            }
+            panic!("{} already enabled!", id);
         }
     }
 
