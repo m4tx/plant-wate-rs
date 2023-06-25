@@ -1,0 +1,3 @@
+[plant-wate-rs-esp32c3]
+wifi_ssid = "SSID"
+wifi_psk = "password"
