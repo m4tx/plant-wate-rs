@@ -115,7 +115,10 @@ impl<'a> Microcontroller for MicrocontrollerEsp32c3<'a> {
 
     fn get_digital_output(&mut self, id: GpioId) -> Self::DigitalOutput {
         let pin = if id == GPIO_2 {
-            let pin = self.gpio_2.take().expect(&format!("{} already taken", id));
+            let pin = self
+                .gpio_2
+                .take()
+                .unwrap_or_else(|| panic!("{} already taken", id));
             DigitalOutputEsp32c3Pin::Gpio2(PinDriver::output(pin).unwrap())
         } else {
             panic!("{} not supported as digital output", id)

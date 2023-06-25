@@ -1,0 +1,119 @@
+name: Rust CI
+
+on:
+  push:
+
+env:
+  CARGO_TERM_COLOR: always
+
+# See: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#concurrency.
+# This will ensure that only one commit will be running tests at a time on each PR.
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        rust: [ "stable", "beta", "nightly" ]
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: Build
+        run: cd plant-wate-rs-core && cargo +${{ matrix.rust }} build
+
+      - name: Test
+        run: cd plant-wate-rs-core && cargo +${{ matrix.rust }} test
+
+  build-esp32c3:
+    runs-on: ubuntu-latest
+    needs: [ "test" ]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy, rust-src
+
+      - name: Install ldproxy
+        run: cargo install ldproxy
+
+      - name: Build
+        run: cd plant-wate-rs-esp32c3 && cargo build --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+
+  clippy:
+    runs-on: ubuntu-latest
+    needs: [ "test" ]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy, rust-src
+
+      - name: Run clippy
+        env:
+          ESP_IDF_VERSION: release/v4.4
+        run: cargo clippy --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dclippy::all
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    needs: [ "test" ]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Run fmt
+        run: cargo fmt --all -- --check

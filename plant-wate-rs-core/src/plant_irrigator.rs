@@ -1,7 +1,8 @@
-
 use std::fmt::{Debug, Display, Formatter};
 use std::time::Duration;
-use log::{info};
+
+use log::info;
+
 use crate::uc::{AnalogInput, AnalogValue, DigitalOutput, Microcontroller};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -15,7 +16,10 @@ impl SensorCalibrationResult {
     pub fn new(min_value: AnalogValue, max_value: AnalogValue) -> Self {
         debug_assert!(min_value < max_value);
 
-        Self { min_value, max_value }
+        Self {
+            min_value,
+            max_value,
+        }
     }
 }
 
@@ -99,10 +103,11 @@ const PUMP_ON_TIME: Duration = Duration::from_millis(500);
 
 impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
     #[inline]
-    pub fn new(soil_moisture_sensor: MicrocontrollerImpl::AnalogInput,
-               pump_enabled: MicrocontrollerImpl::DigitalOutput,
-               calibration_result: SensorCalibrationResult,
-               target_moisture_level: TargetMoistureLevel,
+    pub fn new(
+        soil_moisture_sensor: MicrocontrollerImpl::AnalogInput,
+        pump_enabled: MicrocontrollerImpl::DigitalOutput,
+        calibration_result: SensorCalibrationResult,
+        target_moisture_level: TargetMoistureLevel,
     ) -> Self {
         Self {
             soil_moisture_sensor,
@@ -118,10 +123,14 @@ impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
         let min_val = self.calibration_result.min_value;
         let max_val = self.calibration_result.max_value;
         let moisture_clamped = moisture.value().clamp(min_val.value(), max_val.value());
-        let moisture_ratio = (moisture_clamped - min_val.value()) as f32 / (max_val.value() - min_val.value()) as f32;
+        let moisture_ratio = (moisture_clamped - min_val.value()) as f32
+            / (max_val.value() - min_val.value()) as f32;
         let moisture_percentage: Percentage = (1.0 - moisture_ratio).into();
 
-        info!("Moisture value: {}; min: {}, max: {}, percentage: {}", moisture, min_val, max_val, moisture_percentage);
+        info!(
+            "Moisture value: {}; min: {}, max: {}, percentage: {}",
+            moisture, min_val, max_val, moisture_percentage
+        );
         info!("Target level: {}", self.target_moisture_level);
 
         if moisture_percentage < self.target_moisture_level.min_value {
@@ -148,10 +157,10 @@ pub enum IrrigationStatus {
 
 #[cfg(test)]
 mod tests {
-    
+
+    use super::*;
     use crate::mock_uc::{MockMicrocontroller, MockMicrocontrollerAction};
     use crate::uc::{GPIO_0, GPIO_1};
-    use super::*;
 
     #[test_log::test]
     fn water_when_below_target() {
@@ -193,9 +202,16 @@ mod tests {
         let pumb_enabled = mock_uc.get_digital_output(GPIO_0);
         let soil_sensor = mock_uc.get_analog_input(GPIO_1);
 
-        let calibration_result = SensorCalibrationResult::new(AnalogValue::new(500), AnalogValue::new(2200));
-        let target_moisture_level = TargetMoistureLevel::new(Percentage::new(40), Percentage::new(70));
-        let plant_irrigator: PlantIrrigator<MockMicrocontroller> = PlantIrrigator::new(soil_sensor, pumb_enabled, calibration_result, target_moisture_level);
+        let calibration_result =
+            SensorCalibrationResult::new(AnalogValue::new(500), AnalogValue::new(2200));
+        let target_moisture_level =
+            TargetMoistureLevel::new(Percentage::new(40), Percentage::new(70));
+        let plant_irrigator: PlantIrrigator<MockMicrocontroller> = PlantIrrigator::new(
+            soil_sensor,
+            pumb_enabled,
+            calibration_result,
+            target_moisture_level,
+        );
 
         (mock_uc, plant_irrigator)
     }

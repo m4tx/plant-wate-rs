@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use crate::plant_irrigator_controller::PlantIrrigatorController;
 use crate::uc::Microcontroller;
 
@@ -7,7 +8,7 @@ pub struct Controller<MicrocontrollerImpl: Microcontroller> {
     plant_irrigator_ctrl: PlantIrrigatorController<MicrocontrollerImpl>,
 }
 
-impl <MicrocontrollerImpl: Microcontroller>Controller<MicrocontrollerImpl> {
+impl<MicrocontrollerImpl: Microcontroller> Controller<MicrocontrollerImpl> {
     pub fn new(mut microcontroller: MicrocontrollerImpl) -> Self {
         let plant_irrigator_ctrl = PlantIrrigatorController::new(&mut microcontroller);
 
