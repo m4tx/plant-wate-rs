@@ -4,6 +4,7 @@ use std::time::Duration;
 use log::info;
 
 use crate::uc::{AnalogInput, AnalogValue, DigitalOutput, Microcontroller};
+use crate::uc_utils::AnalogValueMean;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SensorCalibrationResult {
@@ -100,6 +101,7 @@ pub struct PlantIrrigator<MicrocontrollerImpl: Microcontroller> {
 }
 
 const PUMP_ON_TIME: Duration = Duration::from_millis(500);
+const MEASUREMENT_DELAY_TIME: Duration = Duration::from_millis(500);
 
 impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
     #[inline]
@@ -118,7 +120,7 @@ impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
     }
 
     pub fn execute(&mut self, microcontroller: &MicrocontrollerImpl) -> IrrigationStatus {
-        let moisture = self.soil_moisture_sensor.get_value();
+        let moisture = self.avg_moisture_sensor_value(microcontroller);
 
         let min_val = self.calibration_result.min_value;
         let max_val = self.calibration_result.max_value;
@@ -147,6 +149,19 @@ impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
             IrrigationStatus::NotWatered
         }
     }
+
+    fn avg_moisture_sensor_value(&mut self, microcontroller: &MicrocontrollerImpl) -> AnalogValue {
+        const MEASUREMENTS: usize = 3;
+
+        let mut moisture_levels = [AnalogValue::new(0); MEASUREMENTS];
+        moisture_levels[0] = self.soil_moisture_sensor.get_value();
+        for i in 1..MEASUREMENTS {
+            microcontroller.wait(MEASUREMENT_DELAY_TIME);
+            moisture_levels[i] = self.soil_moisture_sensor.get_value();
+        }
+
+        moisture_levels.iter().mean()
+    }
 }
 
 #[derive(Debug)]
@@ -157,27 +172,23 @@ pub enum IrrigationStatus {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::mock_uc::{MockMicrocontroller, MockMicrocontrollerAction};
-    use crate::uc::{GPIO_0, GPIO_1};
+    use crate::uc::{GPIO_0, GPIO_1, GpioId};
 
     #[test_log::test]
     fn water_when_below_target() {
         let (mock_uc, mut plant_irrigator) = create_test_data();
 
-        mock_uc.set_analog_value(GPIO_1, AnalogValue::new(2000));
+        let sensor_value = AnalogValue::new(2000);
+        mock_uc.set_analog_value(GPIO_1, sensor_value);
         plant_irrigator.execute(&mock_uc);
 
         let actual_actions = mock_uc.actions();
-        let expected_actions = vec![
-            MockMicrocontrollerAction::GpioSetAsDigitalOutput(GPIO_0),
-            MockMicrocontrollerAction::GpioSetAsAnalogInput(GPIO_1),
-            MockMicrocontrollerAction::AnalogGpioGetValue(GPIO_1, AnalogValue::new(2000)),
-            MockMicrocontrollerAction::DigitalGpioHigh(GPIO_0),
-            MockMicrocontrollerAction::Wait(PUMP_ON_TIME),
-            MockMicrocontrollerAction::DigitalGpioLow(GPIO_0),
-        ];
+        let mut expected_actions = Vec::new();
+        expected_actions.extend(mock_uc_irrigator_init_actions(GPIO_0, GPIO_1));
+        expected_actions.extend(mock_uc_irrigator_measure_actions(GPIO_1, sensor_value));
+        expected_actions.extend(mock_uc_irrigator_pump_actions(GPIO_0));
         assert_eq!(actual_actions, expected_actions);
     }
 
@@ -185,15 +196,14 @@ mod tests {
     fn dont_water_when_above_target() {
         let (mock_uc, mut plant_irrigator) = create_test_data();
 
-        mock_uc.set_analog_value(GPIO_1, AnalogValue::new(1000));
+        let sensor_value = AnalogValue::new(1000);
+        mock_uc.set_analog_value(GPIO_1, sensor_value);
         plant_irrigator.execute(&mock_uc);
 
         let actual_actions = mock_uc.actions();
-        let expected_actions = vec![
-            MockMicrocontrollerAction::GpioSetAsDigitalOutput(GPIO_0),
-            MockMicrocontrollerAction::GpioSetAsAnalogInput(GPIO_1),
-            MockMicrocontrollerAction::AnalogGpioGetValue(GPIO_1, AnalogValue::new(1000)),
-        ];
+        let mut expected_actions = Vec::new();
+        expected_actions.extend(mock_uc_irrigator_init_actions(GPIO_0, GPIO_1));
+        expected_actions.extend(mock_uc_irrigator_measure_actions(GPIO_1, sensor_value));
         assert_eq!(actual_actions, expected_actions);
     }
 
@@ -214,5 +224,30 @@ mod tests {
         );
 
         (mock_uc, plant_irrigator)
+    }
+
+    fn mock_uc_irrigator_init_actions(gpio_pump: GpioId, gpio_sensor: GpioId) -> Vec<MockMicrocontrollerAction> {
+        vec! [
+            MockMicrocontrollerAction::GpioSetAsDigitalOutput(gpio_pump),
+            MockMicrocontrollerAction::GpioSetAsAnalogInput(gpio_sensor),
+        ]
+    }
+
+    fn mock_uc_irrigator_measure_actions(gpio_sensor: GpioId, value: AnalogValue) -> Vec<MockMicrocontrollerAction> {
+        vec! [
+            MockMicrocontrollerAction::AnalogGpioGetValue(gpio_sensor, value),
+            MockMicrocontrollerAction::Wait(MEASUREMENT_DELAY_TIME),
+            MockMicrocontrollerAction::AnalogGpioGetValue(gpio_sensor, value),
+            MockMicrocontrollerAction::Wait(MEASUREMENT_DELAY_TIME),
+            MockMicrocontrollerAction::AnalogGpioGetValue(gpio_sensor, value),
+        ]
+    }
+
+    fn mock_uc_irrigator_pump_actions(gpio_pump: GpioId) -> Vec<MockMicrocontrollerAction> {
+        vec! [
+            MockMicrocontrollerAction::DigitalGpioHigh(gpio_pump),
+            MockMicrocontrollerAction::Wait(PUMP_ON_TIME),
+            MockMicrocontrollerAction::DigitalGpioLow(gpio_pump),
+        ]
     }
 }

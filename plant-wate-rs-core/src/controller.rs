@@ -9,6 +9,7 @@ pub struct Controller<MicrocontrollerImpl: Microcontroller> {
 }
 
 impl<MicrocontrollerImpl: Microcontroller> Controller<MicrocontrollerImpl> {
+    #[must_use]
     pub fn new(mut microcontroller: MicrocontrollerImpl) -> Self {
         let plant_irrigator_ctrl = PlantIrrigatorController::new(&mut microcontroller);
 

@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(transparent)]
 pub struct GpioId(u8);
 
 impl Display for GpioId {
@@ -31,8 +32,12 @@ pub const GPIO_5: GpioId = GpioId::new(5);
 pub const GPIO_6: GpioId = GpioId::new(6);
 pub const GPIO_7: GpioId = GpioId::new(7);
 pub const GPIO_8: GpioId = GpioId::new(8);
+pub const GPIO_9: GpioId = GpioId::new(9);
+pub const GPIO_10: GpioId = GpioId::new(10);
+pub const GPIO_11: GpioId = GpioId::new(11);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(transparent)]
 pub struct AnalogValue(u16);
 
 impl Display for AnalogValue {
@@ -42,18 +47,23 @@ impl Display for AnalogValue {
 }
 
 impl AnalogValue {
+    pub const ZERO: AnalogValue = AnalogValue::new(0);
+
     #[inline]
+    #[must_use]
     pub const fn new(value: u16) -> Self {
         Self(value)
     }
 
     #[inline]
+    #[must_use]
     pub const fn value(&self) -> u16 {
         self.0
     }
 }
 
 pub trait AnalogInput {
+    #[must_use]
     fn get_value(&mut self) -> AnalogValue;
 }
 
@@ -67,6 +77,8 @@ pub trait Microcontroller {
     type DigitalOutput: DigitalOutput;
 
     fn wait(&self, duration: Duration);
+    #[must_use]
     fn get_analog_input(&mut self, id: GpioId) -> Self::AnalogInput;
+    #[must_use]
     fn get_digital_output(&mut self, id: GpioId) -> Self::DigitalOutput;
 }
