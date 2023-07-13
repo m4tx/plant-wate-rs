@@ -155,9 +155,9 @@ impl<MicrocontrollerImpl: Microcontroller> PlantIrrigator<MicrocontrollerImpl> {
 
         let mut moisture_levels = [AnalogValue::new(0); MEASUREMENTS];
         moisture_levels[0] = self.soil_moisture_sensor.get_value();
-        for i in 1..MEASUREMENTS {
+        for val in moisture_levels.iter_mut().take(MEASUREMENTS).skip(1) {
             microcontroller.wait(MEASUREMENT_DELAY_TIME);
-            moisture_levels[i] = self.soil_moisture_sensor.get_value();
+            *val = self.soil_moisture_sensor.get_value();
         }
 
         moisture_levels.iter().mean()
