@@ -174,7 +174,7 @@ pub enum IrrigationStatus {
 mod tests {
     use super::*;
     use crate::mock_uc::{MockMicrocontroller, MockMicrocontrollerAction};
-    use crate::uc::{GPIO_0, GPIO_1, GpioId};
+    use crate::uc::{GpioId, GPIO_0, GPIO_1};
 
     #[test_log::test]
     fn water_when_below_target() {
@@ -226,15 +226,21 @@ mod tests {
         (mock_uc, plant_irrigator)
     }
 
-    fn mock_uc_irrigator_init_actions(gpio_pump: GpioId, gpio_sensor: GpioId) -> Vec<MockMicrocontrollerAction> {
-        vec! [
+    fn mock_uc_irrigator_init_actions(
+        gpio_pump: GpioId,
+        gpio_sensor: GpioId,
+    ) -> Vec<MockMicrocontrollerAction> {
+        vec![
             MockMicrocontrollerAction::GpioSetAsDigitalOutput(gpio_pump),
             MockMicrocontrollerAction::GpioSetAsAnalogInput(gpio_sensor),
         ]
     }
 
-    fn mock_uc_irrigator_measure_actions(gpio_sensor: GpioId, value: AnalogValue) -> Vec<MockMicrocontrollerAction> {
-        vec! [
+    fn mock_uc_irrigator_measure_actions(
+        gpio_sensor: GpioId,
+        value: AnalogValue,
+    ) -> Vec<MockMicrocontrollerAction> {
+        vec![
             MockMicrocontrollerAction::AnalogGpioGetValue(gpio_sensor, value),
             MockMicrocontrollerAction::Wait(MEASUREMENT_DELAY_TIME),
             MockMicrocontrollerAction::AnalogGpioGetValue(gpio_sensor, value),
@@ -244,7 +250,7 @@ mod tests {
     }
 
     fn mock_uc_irrigator_pump_actions(gpio_pump: GpioId) -> Vec<MockMicrocontrollerAction> {
-        vec! [
+        vec![
             MockMicrocontrollerAction::DigitalGpioHigh(gpio_pump),
             MockMicrocontrollerAction::Wait(PUMP_ON_TIME),
             MockMicrocontrollerAction::DigitalGpioLow(gpio_pump),
