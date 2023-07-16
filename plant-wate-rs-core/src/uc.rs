@@ -62,6 +62,12 @@ impl AnalogValue {
     }
 }
 
+impl <T: Into<u16>> From<T> for AnalogValue {
+    fn from(value: T) -> Self {
+        Self::new(value.into())
+    }
+}
+
 pub trait AnalogInput {
     #[must_use]
     fn get_value(&mut self) -> AnalogValue;
