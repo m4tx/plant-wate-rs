@@ -62,7 +62,7 @@ impl AnalogValue {
     }
 }
 
-impl <T: Into<u16>> From<T> for AnalogValue {
+impl<T: Into<u16>> From<T> for AnalogValue {
     fn from(value: T) -> Self {
         Self::new(value.into())
     }
